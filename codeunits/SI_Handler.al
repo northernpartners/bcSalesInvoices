@@ -213,45 +213,51 @@ codeunit 50200 "SI Handler"
     /// </summary>
     local procedure GetInvoiceDimensions(DocumentNo: Code[20]; TableId: Text; RequestedDimensions: JsonArray): JsonArray
     var
-        DocumentDimension: Record "Document Dimension";
+        SalesHeader: Record "Sales Header";
+        SalesInvoiceHeader: Record "Sales Invoice Header";
+        DimensionSetEntry: Record "Dimension Set Entry";
+        DimensionSetId: Integer;
         DimToken: JsonToken;
-        DimCode: Text;
         DimensionArray: JsonArray;
         DimensionObject: JsonObject;
-        TableIdCode: Code[20];
     begin
-        // Map table names to table IDs
+        // Get the Dimension Set ID from the appropriate table
         case TableId of
             'SalesHeader':
-                TableIdCode := 36;  // Sales Header table ID
+                begin
+                    SalesHeader.Get(SalesHeader."Document Type"::Invoice, DocumentNo);
+                    DimensionSetId := SalesHeader."Dimension Set ID";
+                end;
             'SalesInvoiceHeader':
-                TableIdCode := 112; // Sales Invoice Header table ID
+                begin
+                    SalesInvoiceHeader.Get(DocumentNo);
+                    DimensionSetId := SalesInvoiceHeader."Dimension Set ID";
+                end;
             else
                 exit(DimensionArray); // Return empty array if table not recognized
         end;
 
-        // Query Document Dimension for the document
-        DocumentDimension.SetRange("Table ID", TableIdCode);
-        DocumentDimension.SetRange("Document No.", DocumentNo);
+        // Query Dimension Set Entry for the document's dimension set
+        DimensionSetEntry.SetRange("Dimension Set ID", DimensionSetId);
 
-        if DocumentDimension.FindSet() then
+        if DimensionSetEntry.FindSet() then
             repeat
                 // If specific dimensions requested, only include those
                 if RequestedDimensions.Count() > 0 then begin
-                    if IsDimensionInArray(DocumentDimension."Dimension Code", RequestedDimensions) then begin
+                    if IsDimensionInArray(DimensionSetEntry."Dimension Code", RequestedDimensions) then begin
                         Clear(DimensionObject);
-                        DimensionObject.Add('code', DocumentDimension."Dimension Code");
-                        DimensionObject.Add('value', DocumentDimension."Dimension Value Code");
+                        DimensionObject.Add('code', DimensionSetEntry."Dimension Code");
+                        DimensionObject.Add('value', DimensionSetEntry."Dimension Value Code");
                         DimensionArray.Add(DimensionObject);
                     end;
                 end else begin
                     // If no specific dimensions, include all
                     Clear(DimensionObject);
-                    DimensionObject.Add('code', DocumentDimension."Dimension Code");
-                    DimensionObject.Add('value', DocumentDimension."Dimension Value Code");
+                    DimensionObject.Add('code', DimensionSetEntry."Dimension Code");
+                    DimensionObject.Add('value', DimensionSetEntry."Dimension Value Code");
                     DimensionArray.Add(DimensionObject);
                 end;
-            until DocumentDimension.Next() = 0;
+            until DimensionSetEntry.Next() = 0;
 
         exit(DimensionArray);
     end;
