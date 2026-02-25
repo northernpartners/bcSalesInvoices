@@ -57,9 +57,37 @@ GET /v2.0/{tenant-id}/{environment}/ODataV4/Company('{company-id}')/draftInvoice
 GET /v2.0/{tenant-id}/{environment}/ODataV4/Company('{company-id}')/postedInvoices
 ```
 
+### Get Posted Invoice Lines (GET)
+```
+GET /v2.0/{tenant-id}/{environment}/ODataV4/Company('{company-id}')/postedInvoiceLines?$filter=invoiceNumber eq '{invoiceNumber}'
+```
+
 ### Get Single Invoice (GET)
 ```
 GET /v2.0/{tenant-id}/{environment}/ODataV4/Company('{company-id}')/draftInvoices('{invoiceNumber}')
+```
+
+### Get Invoice Lines (GET)
+```
+GET /v2.0/{tenant-id}/{environment}/ODataV4/Company('{company-id}')/draftInvoiceLines?$filter=invoiceNumber eq '{invoiceNumber}'
+```
+
+Returns invoice line items:
+```json
+{
+  "value": [
+    {
+      "invoiceNumber": "INV-001",
+      "lineNumber": 10000,
+      "description": "Product A",
+      "quantity": 2,
+      "unitPrice": 500.00,
+      "lineAmount": 1000.00,
+      "type": "Item",
+      "itemNo": "ITEM-001"
+    }
+  ]
+}
 ```
 
 ### Query Parameters (OData Standard)
@@ -248,6 +276,8 @@ or
 4. **Register Webservices**: In BC Admin Center → Web Service Registrations, add:
    - Query 50200 "SI Draft Invoices" (Service Name: `draftInvoices`)
    - Query 50201 "SI Posted Invoices" (Service Name: `postedInvoices`)
+   - Query 50202 "SI Posted Invoice Lines" (Service Name: `postedInvoiceLines`)
+   - Query 50203 "SI Draft Invoice Lines" (Service Name: `draftInvoiceLines`)
    - Codeunit 50200 "SI Handler" (Service Name: `SalesInvoices`)
 5. **Enable OData**: Ensure OData v4 is enabled on your BC tenant
 
@@ -255,17 +285,20 @@ or
 
 ```
 codeunits/
-  SI_Handler.al         # POST handler for business logic operations
-  SI_Tests.al           # Unit test suite
+  SI_Handler.al           # POST handler for business logic operations
+  SI_Tests.al             # Unit test suite
 queries/
-  SI_DraftInvoices.al   # GET endpoint for draft invoices
-  SI_PostedInvoices.al  # GET endpoint for posted invoices
+  SI_DraftInvoices.al     # GET endpoint for draft invoices
+  SI_PostedInvoices.al    # GET endpoint for posted invoices
+  SI_DraftInvoiceLines.al     # GET endpoint for draft invoice lines
+  SI_PostedInvoiceLines.al    # GET endpoint for posted invoice lines
 briefing/
-  tasks.txt             # Project requirements
-  todo.md               # Task tracking
-  log.md                # Development log
-  ODATA-GET-POST.md     # Architecture documentation
-  AL-concepts.md        # AL language patterns
+  tasks.txt               # Project requirements
+  todo.md                 # Task tracking
+  log.md                  # Development log
+  ODATA-GET-POST.md       # Architecture documentation
+  AL-concepts.md          # AL language patterns
+  INVOICE-DETAILS.md      # Invoice lines and dimensions guide
 ```
 
 ## Version

@@ -51,6 +51,10 @@ query 50200 "SI Draft Invoices"
             {
                 Caption = 'Currency Code';
             }
+            column(paymentTermsCode; "Payment Terms Code")
+            {
+                Caption = 'Payment Terms Code';
+            }
 
             filter(documentType; "Document Type")
             {

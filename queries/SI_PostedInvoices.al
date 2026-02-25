@@ -47,6 +47,10 @@ query 50201 "SI Posted Invoices"
             {
                 Caption = 'Currency Code';
             }
+            column(paymentTermsCode; "Payment Terms Code")
+            {
+                Caption = 'Payment Terms Code';
+            }
         }
     }
 }
