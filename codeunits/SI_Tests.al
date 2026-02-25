@@ -6,66 +6,70 @@ codeunit 50201 "SI Tests"
         Handler: Codeunit "SI Handler";
 
     [Test]
-    procedure TestGetDraftedListReturnsJson()
+    procedure TestProcessInvoiceWithGetDraftDetailsAction()
     var
+        RequestBody: Text;
         Result: Text;
     begin
-        // Given: Handler is ready
-        // When: GetDrafted is called without id parameter
-        Result := Handler.GetDrafted('');
+        // Given: A valid request for draft invoice details
+        RequestBody := '{"action": "getDraftDetails", "invoiceId": "INVALID-TEST-ID"}';
 
-        // Then: Result should be valid JSON array
-        if Result = '' then
-            Error('GetDrafted should return non-empty result');
-        if StrPos(Result, '[') = 0 then
-            Error('Result should be JSON array');
-    end;
+        // When: ProcessInvoice is called
+        Result := Handler.ProcessInvoice(RequestBody);
 
-    [Test]
-    procedure TestGetPostedListReturnsJson()
-    var
-        Result: Text;
-    begin
-        // Given: Handler is ready
-        // When: GetPosted is called without id parameter
-        Result := Handler.GetPosted('');
-
-        // Then: Result should be valid JSON array
-        if Result = '' then
-            Error('GetPosted should return non-empty result');
-        if StrPos(Result, '[') = 0 then
-            Error('Result should be JSON array');
-    end;
-
-    [Test]
-    procedure TestGetDraftedWithInvalidIdReturnsError()
-    var
-        Result: Text;
-    begin
-        // Given: An invalid invoice ID
-        // When: GetDrafted is called with invalid ID
-        Result := Handler.GetDrafted('INVALID-ID-12345');
-
-        // Then: Result should contain error information
+        // Then: Result should contain error response (no test invoice exists)
         if StrPos(Result, 'error') = 0 then
-            Error('Result should contain error indicator');
-        if StrPos(Result, 'Invoice not found') = 0 then
-            Error('Result should contain error message');
+            Error('Result should contain error field');
     end;
 
     [Test]
-    procedure TestGetPostedWithInvalidIdReturnsError()
+    procedure TestProcessInvoiceWithGetPostedDetailsAction()
     var
+        RequestBody: Text;
         Result: Text;
     begin
-        // Given: An invalid invoice ID
-        // When: GetPosted is called with invalid ID
-        Result := Handler.GetPosted('INVALID-ID-12345');
+        // Given: A valid request for posted invoice details
+        RequestBody := '{"action": "getPostedDetails", "invoiceId": "INVALID-TEST-ID"}';
 
-        // Then: Result should contain error information
+        // When: ProcessInvoice is called
+        Result := Handler.ProcessInvoice(RequestBody);
+
+        // Then: Result should contain error response (no test invoice exists)
         if StrPos(Result, 'error') = 0 then
-            Error('Result should contain error indicator');
-        if StrPos(Result, 'Invoice not found') = 0 then
-            Error('Result should contain error message');
+            Error('Result should contain error field');
+    end;
+
+    [Test]
+    procedure TestProcessInvoiceWithInvalidAction()
+    var
+        RequestBody: Text;
+        Result: Text;
+    begin
+        // Given: A request with invalid action
+        RequestBody := '{"action": "invalidAction"}';
+
+        // When: ProcessInvoice is called
+        Result := Handler.ProcessInvoice(RequestBody);
+
+        // Then: Result should contain error response
+        if StrPos(Result, 'error') = 0 then
+            Error('Result should contain error field for invalid action');
+    end;
+
+    [Test]
+    procedure TestProcessInvoiceWithInvalidJson()
+    var
+        RequestBody: Text;
+        Result: Text;
+    begin
+        // Given: Invalid JSON
+        RequestBody := 'not valid json';
+
+        // When: ProcessInvoice is called
+        Result := Handler.ProcessInvoice(RequestBody);
+
+        // Then: Result should contain error response
+        if StrPos(Result, 'error') = 0 then
+            Error('Result should contain error field for invalid JSON');
     end;
 }

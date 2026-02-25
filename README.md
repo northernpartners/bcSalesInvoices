@@ -245,6 +245,11 @@ or
 1. **Download symbols**: Run `AL: Download Symbols` from VS Code command palette
 2. **Build package**: Run `AL: Package` from command palette
 3. **Deploy**: Upload to Business Central environment
+4. **Register Webservices**: In BC Admin Center → Web Service Registrations, add:
+   - Query 50200 "SI Draft Invoices" (Service Name: `draftInvoices`)
+   - Query 50201 "SI Posted Invoices" (Service Name: `postedInvoices`)
+   - Codeunit 50200 "SI Handler" (Service Name: `SalesInvoices`)
+5. **Enable OData**: Ensure OData v4 is enabled on your BC tenant
 
 ## File Structure
 

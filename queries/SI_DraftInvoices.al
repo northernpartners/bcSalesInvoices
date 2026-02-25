@@ -1,11 +1,11 @@
 query 50200 "SI Draft Invoices"
 {
+    QueryType = API;
     APIGroup = 'salesInvoices';
     APIPublisher = 'northernpartners';
     APIVersion = 'v1.0';
     EntityName = 'draftInvoice';
     EntitySetName = 'draftInvoices';
-    DataAccessIntent = Read;
 
     elements
     {
@@ -30,10 +30,6 @@ query 50200 "SI Draft Invoices"
             column(amountExcludingVat; Amount)
             {
                 Caption = 'Amount Excluding VAT';
-            }
-            column(vat; "Amount Including VAT" - Amount)
-            {
-                Caption = 'VAT Amount';
             }
             column(dueDate; "Due Date")
             {

@@ -1,15 +1,15 @@
 query 50201 "SI Posted Invoices"
 {
+    QueryType = API;
     APIGroup = 'salesInvoices';
     APIPublisher = 'northernpartners';
     APIVersion = 'v1.0';
     EntityName = 'postedInvoice';
     EntitySetName = 'postedInvoices';
-    DataAccessIntent = Read;
 
     elements
     {
-        dataitem(SalesHeader; "Sales Header")
+        dataitem(SalesInvoiceHeader; "Sales Invoice Header")
         {
             column(invoiceNumber; "No.")
             {
@@ -31,10 +31,6 @@ query 50201 "SI Posted Invoices"
             {
                 Caption = 'Amount Excluding VAT';
             }
-            column(vat; "Amount Including VAT" - Amount)
-            {
-                Caption = 'VAT Amount';
-            }
             column(dueDate; "Due Date")
             {
                 Caption = 'Due Date';
@@ -43,10 +39,6 @@ query 50201 "SI Posted Invoices"
             {
                 Caption = 'Document Date';
             }
-            column(status; Status)
-            {
-                Caption = 'Status';
-            }
             column(description; "Your Reference")
             {
                 Caption = 'Description';
@@ -54,13 +46,6 @@ query 50201 "SI Posted Invoices"
             column(currencyCode; "Currency Code")
             {
                 Caption = 'Currency Code';
-            }
-
-            filter(documentType; "Document Type")
-            {
-            }
-            filter(statusFilter; Status)
-            {
             }
         }
     }

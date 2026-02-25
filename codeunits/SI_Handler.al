@@ -80,21 +80,63 @@ codeunit 50200 "SI Handler"
     var
         InvoiceIdToken: JsonToken;
         InvoiceId: Code[20];
-        SalesHeader: Record "Sales Header";
+        SalesInvoiceHeader: Record "Sales Invoice Header";
+        SalesInvoiceLine: Record "Sales Invoice Line";
     begin
         if not InObj.Get('invoiceId', InvoiceIdToken) or not InvoiceIdToken.IsValue() then
             exit(CreateErrorResponse('Missing or invalid "invoiceId" field.'));
 
         InvoiceId := CopyStr(InvoiceIdToken.AsValue().AsText(), 1, MaxStrLen(InvoiceId));
 
-        SalesHeader.SetRange("Document Type", SalesHeader."Document Type"::Invoice);
-        SalesHeader.SetRange("No.", InvoiceId);
-        SalesHeader.SetRange(Status, SalesHeader.Status::Released);
+        SalesInvoiceHeader.SetRange("No.", InvoiceId);
 
-        if not SalesHeader.FindFirst() then
+        if not SalesInvoiceHeader.FindFirst() then
             exit(CreateErrorResponse('Invoice not found', 'The requested posted invoice does not exist.'));
 
-        exit(CreateInvoiceDetailObject(SalesHeader));
+        exit(CreatePostedInvoiceDetailObject(SalesInvoiceHeader));
+    end;
+
+    /// <summary>
+    /// Creates a detailed invoice JSON object including all line items for posted invoices.
+    /// </summary>
+    local procedure CreatePostedInvoiceDetailObject(SalesInvoiceHeader: Record "Sales Invoice Header"): Text
+    var
+        SalesInvoiceLine: Record "Sales Invoice Line";
+        LineArray: JsonArray;
+        LineObject: JsonObject;
+        Result: JsonObject;
+        OutTxt: Text;
+    begin
+        Result.Add('id', SalesInvoiceHeader."No.");
+        Result.Add('invoiceNumber', SalesInvoiceHeader."No.");
+        Result.Add('customerName', SalesInvoiceHeader."Bill-to Name");
+        Result.Add('customerId', SalesInvoiceHeader."Bill-to Customer No.");
+        Result.Add('amount', SalesInvoiceHeader."Amount Including VAT");
+        Result.Add('amountExcludingVat', SalesInvoiceHeader.Amount);
+        Result.Add('vat', SalesInvoiceHeader."Amount Including VAT" - SalesInvoiceHeader.Amount);
+        Result.Add('dueDate', Format(SalesInvoiceHeader."Due Date"));
+        Result.Add('documentDate', Format(SalesInvoiceHeader."Document Date"));
+        Result.Add('status', 'Released');
+        Result.Add('description', SalesInvoiceHeader."Your Reference");
+        Result.Add('currencyCode', SalesInvoiceHeader."Currency Code");
+
+        // Add line items
+        Clear(LineArray);
+        SalesInvoiceLine.SetRange("Document No.", SalesInvoiceHeader."No.");
+        if SalesInvoiceLine.FindSet() then
+            repeat
+                LineObject.Add('lineNumber', SalesInvoiceLine."Line No.");
+                LineObject.Add('description', SalesInvoiceLine.Description);
+                LineObject.Add('quantity', SalesInvoiceLine.Quantity);
+                LineObject.Add('unitPrice', SalesInvoiceLine."Unit Price");
+                LineObject.Add('lineAmount', SalesInvoiceLine."Line Amount");
+                LineArray.Add(LineObject);
+                Clear(LineObject);
+            until SalesInvoiceLine.Next() = 0;
+
+        Result.Add('lines', LineArray);
+        Result.WriteTo(OutTxt);
+        exit(OutTxt);
     end;
 
     /// <summary>
