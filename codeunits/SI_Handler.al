@@ -48,14 +48,16 @@ codeunit 50200 "SI Handler"
     end;
 
     /// <summary>
-    /// Gets full details of a drafted invoice including all line items.
+    /// Gets full details of a drafted invoice including all line items and optional dimensions.
     /// POST endpoint helper procedure.
     /// </summary>
     local procedure GetDraftInvoiceDetails(InObj: JsonObject): Text
     var
         InvoiceIdToken: JsonToken;
+        DimensionsToken: JsonToken;
         InvoiceId: Code[20];
         SalesHeader: Record "Sales Header";
+        DimensionArray: JsonArray;
     begin
         if not InObj.Get('invoiceId', InvoiceIdToken) or not InvoiceIdToken.IsValue() then
             exit(CreateErrorResponse('Missing or invalid "invoiceId" field.'));
@@ -69,19 +71,26 @@ codeunit 50200 "SI Handler"
         if not SalesHeader.FindFirst() then
             exit(CreateErrorResponse('Invoice not found', 'The requested draft invoice does not exist.'));
 
-        exit(CreateInvoiceDetailObject(SalesHeader));
+        // Extract optional dimensions array
+        if InObj.Get('dimensions', DimensionsToken) and DimensionsToken.IsArray() then
+            DimensionArray := DimensionsToken.AsArray()
+        else
+            Clear(DimensionArray);
+
+        exit(CreateInvoiceDetailObject(SalesHeader, DimensionArray));
     end;
 
     /// <summary>
-    /// Gets full details of a posted invoice including all line items.
+    /// Gets full details of a posted invoice including all line items and optional dimensions.
     /// POST endpoint helper procedure.
     /// </summary>
     local procedure GetPostedInvoiceDetails(InObj: JsonObject): Text
     var
         InvoiceIdToken: JsonToken;
+        DimensionsToken: JsonToken;
         InvoiceId: Code[20];
         SalesInvoiceHeader: Record "Sales Invoice Header";
-        SalesInvoiceLine: Record "Sales Invoice Line";
+        DimensionArray: JsonArray;
     begin
         if not InObj.Get('invoiceId', InvoiceIdToken) or not InvoiceIdToken.IsValue() then
             exit(CreateErrorResponse('Missing or invalid "invoiceId" field.'));
@@ -93,13 +102,19 @@ codeunit 50200 "SI Handler"
         if not SalesInvoiceHeader.FindFirst() then
             exit(CreateErrorResponse('Invoice not found', 'The requested posted invoice does not exist.'));
 
-        exit(CreatePostedInvoiceDetailObject(SalesInvoiceHeader));
+        // Extract optional dimensions array
+        if InObj.Get('dimensions', DimensionsToken) and DimensionsToken.IsArray() then
+            DimensionArray := DimensionsToken.AsArray()
+        else
+            Clear(DimensionArray);
+
+        exit(CreatePostedInvoiceDetailObject(SalesInvoiceHeader, DimensionArray));
     end;
 
     /// <summary>
-    /// Creates a detailed invoice JSON object including all line items for posted invoices.
+    /// Creates a detailed invoice JSON object including all line items and optional dimensions for posted invoices.
     /// </summary>
-    local procedure CreatePostedInvoiceDetailObject(SalesInvoiceHeader: Record "Sales Invoice Header"): Text
+    local procedure CreatePostedInvoiceDetailObject(SalesInvoiceHeader: Record "Sales Invoice Header"; DimensionArray: JsonArray): Text
     var
         SalesInvoiceLine: Record "Sales Invoice Line";
         LineArray: JsonArray;
@@ -135,14 +150,19 @@ codeunit 50200 "SI Handler"
             until SalesInvoiceLine.Next() = 0;
 
         Result.Add('lines', LineArray);
+
+        // Add dimensions if requested
+        if DimensionArray.Count() > 0 then
+            Result.Add('dimensions', GetInvoiceDimensions(SalesInvoiceHeader."No.", 'SalesInvoiceHeader', DimensionArray));
+
         Result.WriteTo(OutTxt);
         exit(OutTxt);
     end;
 
     /// <summary>
-    /// Creates a detailed invoice JSON object including all line items.
+    /// Creates a detailed invoice JSON object including all line items and optional dimensions.
     /// </summary>
-    local procedure CreateInvoiceDetailObject(SalesHeader: Record "Sales Header"): Text
+    local procedure CreateInvoiceDetailObject(SalesHeader: Record "Sales Header"; DimensionArray: JsonArray): Text
     var
         SalesLine: Record "Sales Line";
         LineArray: JsonArray;
@@ -179,8 +199,77 @@ codeunit 50200 "SI Handler"
             until SalesLine.Next() = 0;
 
         Result.Add('lines', LineArray);
+
+        // Add dimensions if requested
+        if DimensionArray.Count() > 0 then
+            Result.Add('dimensions', GetInvoiceDimensions(SalesHeader."No.", 'SalesHeader', DimensionArray));
+
         Result.WriteTo(OutTxt);
         exit(OutTxt);
+    end;
+
+    /// <summary>
+    /// Retrieves dimension values for an invoice, filtered by requested dimension codes.
+    /// </summary>
+    local procedure GetInvoiceDimensions(DocumentNo: Code[20]; TableId: Text; RequestedDimensions: JsonArray): JsonArray
+    var
+        DocumentDimension: Record "Document Dimension";
+        DimToken: JsonToken;
+        DimCode: Text;
+        DimensionArray: JsonArray;
+        DimensionObject: JsonObject;
+        TableIdCode: Code[20];
+    begin
+        // Map table names to table IDs
+        case TableId of
+            'SalesHeader':
+                TableIdCode := 36;  // Sales Header table ID
+            'SalesInvoiceHeader':
+                TableIdCode := 112; // Sales Invoice Header table ID
+            else
+                exit(DimensionArray); // Return empty array if table not recognized
+        end;
+
+        // Query Document Dimension for the document
+        DocumentDimension.SetRange("Table ID", TableIdCode);
+        DocumentDimension.SetRange("Document No.", DocumentNo);
+
+        if DocumentDimension.FindSet() then
+            repeat
+                // If specific dimensions requested, only include those
+                if RequestedDimensions.Count() > 0 then begin
+                    if IsDimensionInArray(DocumentDimension."Dimension Code", RequestedDimensions) then begin
+                        Clear(DimensionObject);
+                        DimensionObject.Add('code', DocumentDimension."Dimension Code");
+                        DimensionObject.Add('value', DocumentDimension."Dimension Value Code");
+                        DimensionArray.Add(DimensionObject);
+                    end;
+                end else begin
+                    // If no specific dimensions, include all
+                    Clear(DimensionObject);
+                    DimensionObject.Add('code', DocumentDimension."Dimension Code");
+                    DimensionObject.Add('value', DocumentDimension."Dimension Value Code");
+                    DimensionArray.Add(DimensionObject);
+                end;
+            until DocumentDimension.Next() = 0;
+
+        exit(DimensionArray);
+    end;
+
+    /// <summary>
+    /// Checks if a dimension code exists in the requested dimensions array.
+    /// </summary>
+    local procedure IsDimensionInArray(DimensionCode: Code[20]; DimensionArray: JsonArray): Boolean
+    var
+        i: Integer;
+        DimToken: JsonToken;
+    begin
+        for i := 0 to DimensionArray.Count() - 1 do begin
+            DimensionArray.Get(i, DimToken);
+            if DimToken.IsValue() and (DimToken.AsValue().AsText() = DimensionCode) then
+                exit(true);
+        end;
+        exit(false);
     end;
 
     /// <summary>

@@ -69,11 +69,9 @@ GET /v2.0/{tenant-id}/{environment}/ODataV4/Company('{company-id}')/postedInvoic
 
 **Response:** Same structure as draft invoices (headers only)
 
----
-
 ## POST Endpoint - Codeunit
 
-The `ProcessInvoice` action returns full invoice details with nested line items.
+The `ProcessInvoice` action returns full invoice details with nested line items and optional dimension values.
 
 ### Get Invoice Details (POST)
 
@@ -82,7 +80,7 @@ The `ProcessInvoice` action returns full invoice details with nested line items.
 POST /v2.0/{tenant-id}/{environment}/ODataV4/ProcessInvoice
 ```
 
-**Request Body - Draft Invoice:**
+**Request Body - Draft Invoice (without dimensions):**
 ```json
 {
   "action": "getDraftDetails",
@@ -90,15 +88,25 @@ POST /v2.0/{tenant-id}/{environment}/ODataV4/ProcessInvoice
 }
 ```
 
+**Request Body - Draft Invoice (with dimensions):**
+```json
+{
+  "action": "getDraftDetails",
+  "invoiceId": "INV-001",
+  "dimensions": ["ACTPERIOD", "CONTRACT"]
+}
+```
+
 **Request Body - Posted Invoice:**
 ```json
 {
   "action": "getPostedDetails",
-  "invoiceId": "INV-001"
+  "invoiceId": "INV-001",
+  "dimensions": ["ACTPERIOD", "CONTRACT"]
 }
 ```
 
-**Response (with nested line items):**
+**Response (with nested line items and dimensions):**
 ```json
 {
   "id": "INV-001",
@@ -129,9 +137,24 @@ POST /v2.0/{tenant-id}/{environment}/ODataV4/ProcessInvoice
       "unitPrice": 200.00,
       "lineAmount": 200.00
     }
+  ],
+  "dimensions": [
+    {
+      "code": "ACTPERIOD",
+      "value": "2026-Q1"
+    },
+    {
+      "code": "CONTRACT",
+      "value": "PROJ-123"
+    }
   ]
 }
 ```
+
+**Request Parameters:**
+- `action` (required): `getDraftDetails` or `getPostedDetails`
+- `invoiceId` (required): Invoice number to retrieve
+- `dimensions` (optional): Array of dimension codes to include. If omitted, dimensions are not returned. If included, only requested dimensions are returned.
 
 ---
 
@@ -172,7 +195,8 @@ $invoices = BusinessCentral::OData(
 $query = 'ProcessInvoice';
 $data = [
     'action' => 'getDraftDetails',
-    'invoiceId' => 'INV-001'
+    'invoiceId' => 'INV-001',
+    'dimensions' => ['ACTPERIOD', 'CONTRACT']
 ];
 
 $invoice = BusinessCentral::OData(
@@ -255,6 +279,8 @@ briefing/
 
 - Query objects handle GET requests natively via OData (headers only)
 - POST endpoint returns complete invoice with nested line items array
+- POST endpoint supports optional `dimensions` parameter (array of dimension codes) for retrieving document dimensions
 - Maximum filtering and pagination support through standard OData parameters ($filter, $orderby, $top, $skip)
 - Results sorted by document date (newest first)
 - Status values: `Open` (draft), `Released` (posted)
+- Dimension codes available: `ACTPERIOD`, `CONTRACT` (or any custom dimensions configured in your BC tenant)
