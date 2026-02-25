@@ -1,0 +1,26 @@
+{
+  "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "name": "SalesInvoices",
+  "publisher": "Northern Partners ApS",
+  "version": "1.0.0.1",
+  "brief": "Sales Invoices Web Service Extension",
+  "description": "Business Central extension exposing sales invoice operations via web service API",
+  "platform": "23.0.0.0",
+  "application": "23.0.0.0",
+  "target": "Cloud",
+  "runtime": "11.0",
+  "idRanges": [
+    {
+      "from": 50200,
+      "to": 50249
+    }
+  ],
+  "features": [
+    "NoImplicitWith"
+  ],
+  "resourceExposurePolicy": {
+    "allowDebugging": true,
+    "allowDownloadingSource": true,
+    "includeSourceInSymbolFile": true
+  }
+}

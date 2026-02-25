@@ -1,0 +1,21 @@
+# AL compiler output
+*.app
+*.alcache/
+*.alcache
+.alpackages/
+
+# Briefing/Reference materials (excluded from build)
+briefing/
+
+# Launch and settings (developer specific)
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/settings.json
+
+# VS Code workspace & extensions
+.history/
+*.code-workspace
+
+# System / OS files
+.DS_Store
+Thumbs.db
