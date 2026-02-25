@@ -1,1 +1,1 @@
-﻿{"Added":[],"Modified":[],"Removed":[]}
+﻿{"Added":[{"Id":50201,"Kind":11,"Name":"SI Tests","Namespace":""}],"Modified":[{"Id":50200,"Kind":11,"Name":"SI Handler","Namespace":""}],"Removed":[{"Id":50151,"Kind":11,"Name":"CD Handler","Namespace":""},{"Id":50150,"Kind":11,"Name":"CD Dimension Helpers","Namespace":""},{"Id":50160,"Kind":12,"Name":"Create Dimensions API","Namespace":""}]}
