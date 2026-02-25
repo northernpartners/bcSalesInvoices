@@ -5,94 +5,63 @@ codeunit 50200 "SI Handler"
     end;
 
     /// <summary>
-    /// Gets a list of the 50 latest drafted (non-posted) sales invoices.
-    /// Can be called with optional id parameter to get full details including lines.
+    /// POST endpoint for processing invoice operations.
+    /// Used for business logic operations like approve, post, send, etc.
     /// </summary>
-    /// <param name="id">Optional invoice ID to fetch full details. If empty, returns list of 50 latest.</param>
-    /// <returns>JSON text representation of invoice data</returns>
-    procedure GetDrafted(id: Code[20]): Text
+    [ServiceEnabled]
+    procedure ProcessInvoice(requestBody: Text): Text
     var
-        SalesHeader: Record "Sales Header";
-        InvoiceList: JsonArray;
-        InvoiceObject: JsonObject;
-        i: Integer;
+        InObj: JsonObject;
+        OutObj: JsonObject;
         OutTxt: Text;
     begin
-        if id <> '' then
-            exit(GetDraftedDetail(id));
+        if not InObj.ReadFrom(requestBody) then
+            exit(CreateErrorResponse('Invalid JSON in requestBody.'));
 
-        // List 50 latest drafted invoices (Status = Open means not posted)
-        SalesHeader.SetCurrentKey("No.");
-        SalesHeader.SetRange("Document Type", SalesHeader."Document Type"::Invoice);
-        SalesHeader.SetRange(Status, SalesHeader.Status::Open);
-        SalesHeader.Ascending(false);
-
-        Clear(InvoiceList);
-        i := 0;
-        if SalesHeader.FindSet() then
-            repeat
-                if i >= 50 then
-                    break;
-
-                CreateInvoiceObject(SalesHeader, InvoiceObject);
-                InvoiceList.Add(InvoiceObject);
-                Clear(InvoiceObject);
-                i += 1;
-            until SalesHeader.Next() = 0;
-
-        InvoiceList.WriteTo(OutTxt);
-        exit(OutTxt);
+        exit(ProcessInvoiceOperation(InObj));
     end;
 
     /// <summary>
-    /// Gets a list of the 50 latest posted sales invoices.
-    /// Can be called with optional id parameter to get full details including lines.
+    /// Processes invoice operations based on the requested action.
     /// </summary>
-    /// <param name="id">Optional invoice ID to fetch full details. If empty, returns list of 50 latest.</param>
-    /// <returns>JSON text representation of invoice data</returns>
-    procedure GetPosted(id: Code[20]): Text
+    local procedure ProcessInvoiceOperation(InObj: JsonObject): Text
     var
-        SalesHeader: Record "Sales Header";
-        InvoiceList: JsonArray;
-        InvoiceObject: JsonObject;
-        i: Integer;
+        OutObj: JsonObject;
         OutTxt: Text;
+        ActionToken: JsonToken;
+        Action: Text;
     begin
-        if id <> '' then
-            exit(GetPostedDetail(id));
+        // Extract action parameter
+        if not InObj.Get('action', ActionToken) or not ActionToken.IsValue() then
+            exit(CreateErrorResponse('Missing or invalid "action" field.'));
 
-        // List 50 latest posted invoices
-        SalesHeader.SetCurrentKey("No.");
-        SalesHeader.SetRange("Document Type", SalesHeader."Document Type"::Invoice);
-        SalesHeader.SetRange(Status, SalesHeader.Status::Released);
-        SalesHeader.Ascending(false);
+        Action := ActionToken.AsValue().AsText();
 
-        Clear(InvoiceList);
-        i := 0;
-        if SalesHeader.FindSet() then
-            repeat
-                if i >= 50 then
-                    break;
-
-                CreateInvoiceObject(SalesHeader, InvoiceObject);
-                InvoiceList.Add(InvoiceObject);
-                Clear(InvoiceObject);
-                i += 1;
-            until SalesHeader.Next() = 0;
-
-        InvoiceList.WriteTo(OutTxt);
-        exit(OutTxt);
+        case Action of
+            'getDraftDetails':
+                exit(GetDraftInvoiceDetails(InObj));
+            'getPostedDetails':
+                exit(GetPostedInvoiceDetails(InObj));
+            else
+                exit(CreateErrorResponse('Unknown action: ' + Action));
+        end;
     end;
 
     /// <summary>
     /// Gets full details of a drafted invoice including all line items.
+    /// POST endpoint helper procedure.
     /// </summary>
-    /// <param name="InvoiceId">The invoice number to retrieve</param>
-    /// <returns>JSON text with invoice details and lines, or error message</returns>
-    local procedure GetDraftedDetail(InvoiceId: Code[20]): Text
+    local procedure GetDraftInvoiceDetails(InObj: JsonObject): Text
     var
+        InvoiceIdToken: JsonToken;
+        InvoiceId: Code[20];
         SalesHeader: Record "Sales Header";
     begin
+        if not InObj.Get('invoiceId', InvoiceIdToken) or not InvoiceIdToken.IsValue() then
+            exit(CreateErrorResponse('Missing or invalid "invoiceId" field.'));
+
+        InvoiceId := CopyStr(InvoiceIdToken.AsValue().AsText(), 1, MaxStrLen(InvoiceId));
+
         SalesHeader.SetRange("Document Type", SalesHeader."Document Type"::Invoice);
         SalesHeader.SetRange("No.", InvoiceId);
         SalesHeader.SetRange(Status, SalesHeader.Status::Open);
@@ -105,13 +74,19 @@ codeunit 50200 "SI Handler"
 
     /// <summary>
     /// Gets full details of a posted invoice including all line items.
+    /// POST endpoint helper procedure.
     /// </summary>
-    /// <param name="InvoiceId">The invoice number to retrieve</param>
-    /// <returns>JSON text with invoice details and lines, or error message</returns>
-    local procedure GetPostedDetail(InvoiceId: Code[20]): Text
+    local procedure GetPostedInvoiceDetails(InObj: JsonObject): Text
     var
+        InvoiceIdToken: JsonToken;
+        InvoiceId: Code[20];
         SalesHeader: Record "Sales Header";
     begin
+        if not InObj.Get('invoiceId', InvoiceIdToken) or not InvoiceIdToken.IsValue() then
+            exit(CreateErrorResponse('Missing or invalid "invoiceId" field.'));
+
+        InvoiceId := CopyStr(InvoiceIdToken.AsValue().AsText(), 1, MaxStrLen(InvoiceId));
+
         SalesHeader.SetRange("Document Type", SalesHeader."Document Type"::Invoice);
         SalesHeader.SetRange("No.", InvoiceId);
         SalesHeader.SetRange(Status, SalesHeader.Status::Released);
@@ -120,21 +95,6 @@ codeunit 50200 "SI Handler"
             exit(CreateErrorResponse('Invoice not found', 'The requested posted invoice does not exist.'));
 
         exit(CreateInvoiceDetailObject(SalesHeader));
-    end;
-
-    /// <summary>
-    /// Creates a basic invoice JSON object with header information only.
-    /// </summary>
-    local procedure CreateInvoiceObject(SalesHeader: Record "Sales Header"; var Result: JsonObject)
-    begin
-        Result.Add('id', SalesHeader."No.");
-        Result.Add('invoiceNumber', SalesHeader."No.");
-        Result.Add('customerName', SalesHeader."Bill-to Name");
-        Result.Add('customerId', SalesHeader."Bill-to Customer No.");
-        Result.Add('amount', SalesHeader."Amount Including VAT");
-        Result.Add('dueDate', Format(SalesHeader."Due Date"));
-        Result.Add('documentDate', Format(SalesHeader."Document Date"));
-        Result.Add('status', Format(SalesHeader.Status));
     end;
 
     /// <summary>
@@ -192,6 +152,20 @@ codeunit 50200 "SI Handler"
         Result.Add('error', true);
         Result.Add('code', ErrorCode);
         Result.Add('message', ErrorMessage);
+        Result.WriteTo(OutTxt);
+        exit(OutTxt);
+    end;
+
+    /// <summary>
+    /// Creates a standardized error response with just a message.
+    /// </summary>
+    local procedure CreateErrorResponse(ErrorMsg: Text): Text
+    var
+        Result: JsonObject;
+        OutTxt: Text;
+    begin
+        Result.Add('success', false);
+        Result.Add('error', ErrorMsg);
         Result.WriteTo(OutTxt);
         exit(OutTxt);
     end;

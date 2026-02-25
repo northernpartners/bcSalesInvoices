@@ -1,59 +1,114 @@
 # SalesInvoices
 
-A Business Central AL package for exposing posted and drafted Sales Invoices via a RESTful web service API.
+A Business Central AL package for exposing posted and drafted Sales Invoices via OData web service APIs.
 
 ## Features
 
-- **OData GET API** for retrieving sales invoices
+- **OData Query API** for retrieving sales invoices (GET requests)
 - **Dual endpoints** for posted and drafted invoices
-- **List and Detail views** with optional filtering
+- **List and Detail views** with queryable filtering
 - **JSON responses** with invoice headers and line items
 - **Error handling** for invalid requests
 - **Cloud-ready** for Business Central Online
 
 ## Web Service API
 
-### Base URL
-```
-[Business Central Instance]/OData/Company('Default')/[ApiPage]
-```
+### Architecture
 
-### Endpoints
+The extension uses two complementary approaches:
 
-#### 1. List Latest Drafted Invoices (GET)
-```
-GET .../SalesInvoices_GetDrafted
-```
-
-**Response (List):**
-```json
-[
-  {
-    "id": "INV-001",
-    "invoiceNumber": "INV-001",
-    "customerName": "Customer ABC",
-    "customerId": "CUST-001",
-    "amount": 1500.00,
-    "dueDate": "2026-03-31",
-    "documentDate": "2026-02-25",
-    "status": "Draft",
-    "posted": false
-  }
-]
-```
-
-**Query Parameters:**
-- `$top=50` - Limit to 50 most recent (default)
-- `$filter` - Filter results (supported on customerName, documentDate, etc.)
+1. **Query Objects** (GET requests) - For listing and querying invoices
+2. **Codeunit** (POST requests) - For business logic operations
 
 ---
 
-#### 2. Get Drafted Invoice Details (GET)
+## GET Endpoints - Query Objects
+
+Query objects expose data as read-only, queryable OData endpoints via GET requests.
+
+### List Draft Invoices (GET)
 ```
-GET .../SalesInvoices_GetDrafted?id=INV-001
+GET /v2.0/{tenant-id}/{environment}/ODataV4/Company('{company-id}')/draftInvoices
 ```
 
-**Response (Detail with Lines):**
+**Response:**
+```json
+{
+  "value": [
+    {
+      "invoiceNumber": "INV-001",
+      "customerName": "Customer ABC",
+      "customerId": "CUST-001",
+      "amount": 1500.00,
+      "amountExcludingVat": 1200.00,
+      "vat": 300.00,
+      "dueDate": "2026-03-31",
+      "documentDate": "2026-02-25",
+      "status": "Open",
+      "description": "Initial invoice",
+      "currencyCode": "DKK"
+    }
+  ]
+}
+```
+
+### List Posted Invoices (GET)
+```
+GET /v2.0/{tenant-id}/{environment}/ODataV4/Company('{company-id}')/postedInvoices
+```
+
+### Get Single Invoice (GET)
+```
+GET /v2.0/{tenant-id}/{environment}/ODataV4/Company('{company-id}')/draftInvoices('{invoiceNumber}')
+```
+
+### Query Parameters (OData Standard)
+
+**Limit results:**
+```
+?$top=50&$skip=0
+```
+
+**Filter by customer:**
+```
+?$filter=customerName eq 'Customer ABC'
+```
+
+**Filter by date range:**
+```
+?$filter=documentDate ge 2026-01-01 and documentDate le 2026-12-31
+```
+
+**Sort by date (newest first):**
+```
+?$orderby=documentDate desc
+```
+
+**Combined example:**
+```
+GET /ODataV4/Company('{id}')/draftInvoices?$top=50&$orderby=documentDate desc&$filter=status eq 'Open'
+```
+
+---
+
+## POST Endpoint - Codeunit
+
+For business logic operations, use the ProcessInvoice action on the codeunit.
+
+### Get Draft Invoice Details (POST)
+```
+POST /v2.0/{tenant-id}/{environment}/ODataV4/ProcessInvoice
+```
+
+**Request Body:**
+```json
+{
+  "action": "getDraftDetails",
+  "invoiceId": "INV-001"
+}
+```
+
+**Response:**
 ```json
 {
   "id": "INV-001",
@@ -65,9 +120,8 @@ GET .../SalesInvoices_GetDrafted?id=INV-001
   "vat": 300.00,
   "dueDate": "2026-03-31",
   "documentDate": "2026-02-25",
-  "status": "Draft",
-  "posted": false,
-  "description": "Initial invoice draft",
+  "status": "Open",
+  "description": "Initial invoice",
   "currencyCode": "DKK",
   "lines": [
     {
@@ -88,31 +142,93 @@ GET .../SalesInvoices_GetDrafted?id=INV-001
 }
 ```
 
----
-
-#### 3. List Latest Posted Invoices (GET)
+### Get Posted Invoice Details (POST)
 ```
-GET .../SalesInvoices_GetPosted
+POST /v2.0/{tenant-id}/{environment}/ODataV4/ProcessInvoice
 ```
 
-**Response (List):**
-Same format as drafted list endpoint, but only returns posted invoices.
-
----
-
-#### 4. Get Posted Invoice Details (GET)
+**Request Body:**
+```json
+{
+  "action": "getPostedDetails",
+  "invoiceId": "INV-001"
+}
 ```
-GET .../SalesInvoices_GetPosted?id=INV-001
-```
-
-**Response (Detail with Lines):**
-Same format as drafted detail endpoint, but only for posted invoices.
 
 ---
 
-### Error Responses
+## PHP Client Examples
 
-When an error occurs, the API returns a JSON error object:
+### Get List of Draft Invoices (GET)
+```php
+$auth = BusinessCentral::auth();
+$department = Lists::departmentContact(7);
+$company_id = $department['bc_company_id'];
+
+// List latest draft invoices
+$query = "Company('$company_id')/draftInvoices?\$top=50&\$orderby=documentDate desc";
+
+$invoices = BusinessCentral::OData(
+    auth: $auth,
+    method: 'GET',
+    environment: $department['bc_environment'],
+    query: $query
+);
+```
+
+### Filter by Customer (GET)
+```php
+$customer_name = 'Customer ABC';
+$query = "Company('$company_id')/draftInvoices?\$filter=customerName eq '$customer_name'";
+
+$invoices = BusinessCentral::OData(
+    auth: $auth,
+    method: 'GET',
+    environment: $department['bc_environment'],
+    query: $query
+);
+```
+
+### Get Full Invoice Details (POST)
+```php
+$query = 'ProcessInvoice';
+$data = [
+    'action' => 'getDraftDetails',
+    'invoiceId' => 'INV-001'
+];
+
+$invoice = BusinessCentral::OData(
+    auth: $auth,
+    method: 'POST',
+    environment: $department['bc_environment'],
+    query: $query,
+    data: json_encode($data)
+);
+```
+
+---
+
+## Error Responses
+
+### GET Query Errors
+```json
+{
+  "@odata.error": {
+    "code": "BadRequest",
+    "message": "Invalid query parameters"
+  }
+}
+```
+
+### POST Operation Errors
+```json
+{
+  "success": false,
+  "error": "Invoice not found"
+}
+```
+
+or
 
 ```json
 {
@@ -122,10 +238,6 @@ When an error occurs, the API returns a JSON error object:
 }
 ```
 
-**Common Error Codes:**
-- `Invoice not found` - The specified invoice ID doesn't exist or has incorrect status
-- `Invalid request` - Malformed request parameters
-
 ---
 
 ## Building and Deployment
@@ -134,25 +246,21 @@ When an error occurs, the API returns a JSON error object:
 2. **Build package**: Run `AL: Package` from command palette
 3. **Deploy**: Upload to Business Central environment
 
-## Testing
-
-Unit tests are included in `SI_Tests.al`:
-- `TestGetDraftedListReturnsJson` - Validates list endpoint returns valid JSON
-- `TestGetPostedListReturnsJson` - Validates list endpoint for posted invoices
-- `TestGetDraftedWithInvalidIdReturnsError` - Validates error handling
-- `TestGetPostedWithInvalidIdReturnsError` - Validates error handling for posted
-
 ## File Structure
 
 ```
 codeunits/
-  SI_Handler.al        # Main handler with GetDrafted/GetPosted procedures
-  SI_Tests.al          # Unit test suite
-pages/                 # API pages (if needed for direct web service exposure)
+  SI_Handler.al         # POST handler for business logic operations
+  SI_Tests.al           # Unit test suite
+queries/
+  SI_DraftInvoices.al   # GET endpoint for draft invoices
+  SI_PostedInvoices.al  # GET endpoint for posted invoices
 briefing/
-  tasks.txt            # Project requirements
-  todo.md              # Detailed task tracking
-  log.md               # Development log
+  tasks.txt             # Project requirements
+  todo.md               # Task tracking
+  log.md                # Development log
+  ODATA-GET-POST.md     # Architecture documentation
+  AL-concepts.md        # AL language patterns
 ```
 
 ## Version
@@ -160,10 +268,12 @@ briefing/
 - **Version:** 1.0.0.1
 - **Publisher:** Northern Partners ApS
 - **Platform:** Business Central 23.0+
+- **Runtime:** AL 11.0
 
 ## Notes
 
-- The briefing folder is excluded from compilation
-- Maximum 50 invoices per request
-- Results are sorted by document date (newest first)
-- Line items are included in detail responses only
+- Query objects handle GET requests natively via OData
+- Maximum filtering and pagination support through standard OData parameters
+- Line items are included in POST detail endpoints only
+- Results sorted by document date (newest first)
+- Status values: `Open` (draft), `Released` (posted)
