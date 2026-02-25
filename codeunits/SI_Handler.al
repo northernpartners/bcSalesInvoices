@@ -135,6 +135,7 @@ codeunit 50200 "SI Handler"
         Result.Add('description', SalesInvoiceHeader."Your Reference");
         Result.Add('currencyCode', SalesInvoiceHeader."Currency Code");
         Result.Add('paymentTermsCode', SalesInvoiceHeader."Payment Terms Code");
+        Result.Add('pdfUrl', GetPostedInvoicePdfUrl(SalesInvoiceHeader."No."));
 
         // Add line items
         Clear(LineArray);
@@ -184,6 +185,7 @@ codeunit 50200 "SI Handler"
         Result.Add('description', SalesHeader."Your Reference");
         Result.Add('currencyCode', SalesHeader."Currency Code");
         Result.Add('paymentTermsCode', SalesHeader."Payment Terms Code");
+        Result.Add('pdfUrl', '');
 
         // Add line items
         Clear(LineArray);
@@ -208,6 +210,17 @@ codeunit 50200 "SI Handler"
 
         Result.WriteTo(OutTxt);
         exit(OutTxt);
+    end;
+
+    /// <summary>
+    /// Constructs the PDF download URL for a posted invoice.
+    /// Returns the OData endpoint URL to download the invoice PDF.
+    /// </summary>
+    local procedure GetPostedInvoicePdfUrl(InvoiceNumber: Code[20]): Text
+    begin
+        // URL pattern for downloading a posted Sales Invoice PDF in BC
+        // The actual URL will be constructed by the client using their tenant/environment info
+        exit('SalesInvoices/SalesInvoiceDocument/' + InvoiceNumber);
     end;
 
     /// <summary>

@@ -122,6 +122,7 @@ POST /v2.0/{tenant-id}/{environment}/ODataV4/ProcessInvoice
   "description": "Initial invoice",
   "currencyCode": "DKK",
   "paymentTermsCode": "NET30",
+  "pdfUrl": "SalesInvoices/SalesInvoiceDocument/INV-001",
   "lines": [
     {
       "lineNumber": 10000,
@@ -151,10 +152,19 @@ POST /v2.0/{tenant-id}/{environment}/ODataV4/ProcessInvoice
 }
 ```
 
+**Response Notes:**
+- For **draft invoices**: `pdfUrl` is empty (PDFs only exist for posted invoices)
+- For **posted invoices**: `pdfUrl` contains a reference path to download the PDF
+
 **Request Parameters:**
 - `action` (required): `getDraftDetails` or `getPostedDetails`
 - `invoiceId` (required): Invoice number to retrieve
 - `dimensions` (optional): Array of dimension codes to include. If omitted, dimensions are not returned. If included, only requested dimensions are returned.
+
+**Response Fields:**
+- `pdfUrl`: For posted invoices, a reference path to download the PDF. Empty for draft invoices.
+- `dimensions`: Only included if requested in the `dimensions` parameter.
+- All other fields are always included.
 
 ---
 
