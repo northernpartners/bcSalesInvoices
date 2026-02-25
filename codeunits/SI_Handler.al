@@ -134,6 +134,7 @@ codeunit 50200 "SI Handler"
         Result.Add('status', 'Released');
         Result.Add('description', SalesInvoiceHeader."Your Reference");
         Result.Add('currencyCode', SalesInvoiceHeader."Currency Code");
+        Result.Add('paymentTermsCode', SalesInvoiceHeader."Payment Terms Code");
 
         // Add line items
         Clear(LineArray);
@@ -182,6 +183,7 @@ codeunit 50200 "SI Handler"
         Result.Add('status', Format(SalesHeader.Status));
         Result.Add('description', SalesHeader."Your Reference");
         Result.Add('currencyCode', SalesHeader."Currency Code");
+        Result.Add('paymentTermsCode', SalesHeader."Payment Terms Code");
 
         // Add line items
         Clear(LineArray);
