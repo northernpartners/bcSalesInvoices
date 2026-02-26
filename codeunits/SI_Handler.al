@@ -129,8 +129,8 @@ codeunit 50200 "SI Handler"
         Result.Add('amount', SalesInvoiceHeader."Amount Including VAT");
         Result.Add('amountExcludingVat', SalesInvoiceHeader.Amount);
         Result.Add('vat', SalesInvoiceHeader."Amount Including VAT" - SalesInvoiceHeader.Amount);
-        Result.Add('dueDate', Format(SalesInvoiceHeader."Due Date"));
-        Result.Add('documentDate', Format(SalesInvoiceHeader."Document Date"));
+        Result.Add('dueDate', FormatDateISO(SalesInvoiceHeader."Due Date"));
+        Result.Add('documentDate', FormatDateISO(SalesInvoiceHeader."Document Date"));
         Result.Add('status', 'Released');
         Result.Add('description', SalesInvoiceHeader."Your Reference");
         Result.Add('currencyCode', SalesInvoiceHeader."Currency Code");
@@ -187,8 +187,8 @@ codeunit 50200 "SI Handler"
         Result.Add('amount', SalesHeader."Amount Including VAT");
         Result.Add('amountExcludingVat', SalesHeader.Amount);
         Result.Add('vat', SalesHeader."Amount Including VAT" - SalesHeader.Amount);
-        Result.Add('dueDate', Format(SalesHeader."Due Date"));
-        Result.Add('documentDate', Format(SalesHeader."Document Date"));
+        Result.Add('dueDate', FormatDateISO(SalesHeader."Due Date"));
+        Result.Add('documentDate', FormatDateISO(SalesHeader."Document Date"));
         Result.Add('status', Format(SalesHeader.Status));
         Result.Add('description', SalesHeader."Your Reference");
         Result.Add('currencyCode', SalesHeader."Currency Code");
@@ -226,6 +226,16 @@ codeunit 50200 "SI Handler"
 
         Result.WriteTo(OutTxt);
         exit(OutTxt);
+    end;
+
+    /// <summary>
+    /// Formats a date in ISO 8601 format (YYYY-MM-DD).
+    /// </summary>
+    local procedure FormatDateISO(InputDate: Date): Text
+    begin
+        if InputDate = 0D then
+            exit('');
+        exit(Format(InputDate, 0, '<Year4>-<Month,2>-<Day,2>'));
     end;
 
     /// <summary>
