@@ -42,9 +42,99 @@ codeunit 50200 "SI Handler"
                 exit(GetDraftInvoiceDetails(InObj));
             'getPostedDetails':
                 exit(GetPostedInvoiceDetails(InObj));
+            'createDraft':
+                exit(CreateDraftInvoice(InObj));
             else
                 exit(CreateErrorResponse('Unknown action: ' + Action));
         end;
+    end;
+
+    /// <summary>
+    /// Creates a new draft invoice with the provided parameters.
+    /// Validates all required fields and returns the new invoice number or error.
+    /// </summary>
+    local procedure CreateDraftInvoice(InObj: JsonObject): Text
+    var
+        SalesHeader: Record "Sales Header";
+        Customer: Record Customer;
+        CustomerIdToken: JsonToken;
+        DocumentDateToken: JsonToken;
+        DueDateToken: JsonToken;
+        CurrencyCodeToken: JsonToken;
+        PaymentTermsCodeToken: JsonToken;
+        CustomerId: Code[20];
+        DocumentDate: Date;
+        DueDate: Date;
+        CurrencyCode: Code[10];
+        PaymentTermsCode: Code[10];
+        Result: JsonObject;
+        OutTxt: Text;
+    begin
+        // Validate and extract customerId
+        if not InObj.Get('customerId', CustomerIdToken) or not CustomerIdToken.IsValue() then
+            exit(CreateErrorResponse('Missing or invalid "customerId" field.'));
+
+        CustomerId := CopyStr(CustomerIdToken.AsValue().AsText(), 1, MaxStrLen(CustomerId));
+
+        // Validate customer exists
+        if not Customer.Get(CustomerId) then
+            exit(CreateErrorResponse('Customer not found', 'The customer with ID "' + CustomerId + '" does not exist.'));
+
+        // Validate and extract documentDate
+        if not InObj.Get('documentDate', DocumentDateToken) or not DocumentDateToken.IsValue() then
+            exit(CreateErrorResponse('Missing or invalid "documentDate" field.'));
+
+        if not ParseDateISO(DocumentDateToken.AsValue().AsText(), DocumentDate) then
+            exit(CreateErrorResponse('Invalid date format', 'documentDate must be in YYYY-MM-DD format.'));
+
+        // Validate and extract dueDate
+        if not InObj.Get('dueDate', DueDateToken) or not DueDateToken.IsValue() then
+            exit(CreateErrorResponse('Missing or invalid "dueDate" field.'));
+
+        if not ParseDateISO(DueDateToken.AsValue().AsText(), DueDate) then
+            exit(CreateErrorResponse('Invalid date format', 'dueDate must be in YYYY-MM-DD format.'));
+
+        // Validate and extract currencyCode
+        if not InObj.Get('currencyCode', CurrencyCodeToken) or not CurrencyCodeToken.IsValue() then
+            exit(CreateErrorResponse('Missing or invalid "currencyCode" field.'));
+
+        CurrencyCode := CopyStr(CurrencyCodeToken.AsValue().AsText(), 1, MaxStrLen(CurrencyCode));
+
+        // Extract paymentTermsCode (optional)
+        if InObj.Get('paymentTermsCode', PaymentTermsCodeToken) and PaymentTermsCodeToken.IsValue() then
+            PaymentTermsCode := CopyStr(PaymentTermsCodeToken.AsValue().AsText(), 1, MaxStrLen(PaymentTermsCode))
+        else
+            Clear(PaymentTermsCode);
+
+        // Create the invoice
+        SalesHeader.Init();
+        SalesHeader."Document Type" := SalesHeader."Document Type"::Invoice;
+        SalesHeader."No." := '';
+        SalesHeader.Insert(true);
+
+        // Set customer and dates
+        SalesHeader.Validate("Sell-to Customer No.", CustomerId);
+        SalesHeader.Validate("Document Date", DocumentDate);
+        SalesHeader.Validate("Due Date", DueDate);
+        SalesHeader.Validate("Currency Code", CurrencyCode);
+        SalesHeader.Validate("Payment Terms Code", PaymentTermsCode);
+        SalesHeader.Modify(true);
+
+        // Build response
+        Result.Add('success', true);
+        Result.Add('message', 'Draft invoice created successfully');
+        Result.Add('invoiceNumber', SalesHeader."No.");
+        Result.Add('customerId', SalesHeader."Sell-to Customer No.");
+        Result.Add('customerName', SalesHeader."Sell-to Customer Name");
+        Result.Add('documentDate', FormatDateISO(SalesHeader."Document Date"));
+        Result.Add('dueDate', FormatDateISO(SalesHeader."Due Date"));
+        Result.Add('currencyCode', SalesHeader."Currency Code");
+        Result.Add('paymentTermsCode', SalesHeader."Payment Terms Code");
+        Result.Add('status', 'Open');
+        Result.Add('amount', 0.00);
+
+        Result.WriteTo(OutTxt);
+        exit(OutTxt);
     end;
 
     /// <summary>
@@ -236,6 +326,52 @@ codeunit 50200 "SI Handler"
         if InputDate = 0D then
             exit('');
         exit(Format(InputDate, 0, '<Year4>-<Month,2>-<Day,2>'));
+    end;
+
+    /// <summary>
+    /// Parses a date string in ISO 8601 format (YYYY-MM-DD) to a Date value.
+    /// </summary>
+    local procedure ParseDateISO(DateString: Text; var OutputDate: Date): Boolean
+    var
+        Year: Integer;
+        Month: Integer;
+        Day: Integer;
+        HyphenPos1: Integer;
+        HyphenPos2: Integer;
+        YearStr: Text;
+        MonthStr: Text;
+        DayStr: Text;
+        RemainStr: Text;
+    begin
+        // Find first hyphen
+        HyphenPos1 := StrPos(DateString, '-');
+        if HyphenPos1 = 0 then
+            exit(false);
+
+        // Find second hyphen
+        RemainStr := CopyStr(DateString, HyphenPos1 + 1);
+        HyphenPos2 := StrPos(RemainStr, '-');
+        if HyphenPos2 = 0 then
+            exit(false);
+
+        // Extract parts
+        YearStr := CopyStr(DateString, 1, HyphenPos1 - 1);
+        MonthStr := CopyStr(DateString, HyphenPos1 + 1, HyphenPos2 - 1);
+        DayStr := CopyStr(DateString, HyphenPos1 + HyphenPos2 + 1);
+
+        // Parse values
+        if not Evaluate(Year, YearStr) or (Year < 1900) or (Year > 2099) then
+            exit(false);
+
+        if not Evaluate(Month, MonthStr) or (Month < 1) or (Month > 12) then
+            exit(false);
+
+        if not Evaluate(Day, DayStr) or (Day < 1) or (Day > 31) then
+            exit(false);
+
+        // Create the date
+        OutputDate := DMY2Date(Day, Month, Year);
+        exit(true);
     end;
 
     /// <summary>

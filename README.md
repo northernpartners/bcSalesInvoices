@@ -71,7 +71,72 @@ GET /v2.0/{tenant-id}/{environment}/ODataV4/Company('{company-id}')/postedInvoic
 
 ## POST Endpoint - Codeunit
 
-The `ProcessInvoice` action returns full invoice details with nested line items and optional dimension values.
+The `ProcessInvoice` action supports multiple operations for retrieving and creating invoices.
+
+### Create Draft Invoice (POST)
+
+**Endpoint:**
+```
+POST /v2.0/{tenant-id}/{environment}/ODataV4/ProcessInvoice
+```
+
+**Request Body:**
+```json
+{
+  "action": "createDraft",
+  "customerId": "CUST-001",
+  "documentDate": "2026-02-26",
+  "dueDate": "2026-03-31",
+  "currencyCode": "DKK",
+  "paymentTermsCode": "NET30"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Draft invoice created successfully",
+  "invoiceNumber": "INV-001",
+  "customerId": "CUST-001",
+  "customerName": "Customer ABC",
+  "documentDate": "2026-02-26",
+  "dueDate": "2026-03-31",
+  "currencyCode": "DKK",
+  "paymentTermsCode": "NET30",
+  "status": "Open",
+  "amount": 0.00
+}
+```
+
+**Request Parameters:**
+- `action` (required): Must be `"createDraft"`
+- `customerId` (required): Valid customer ID in Business Central
+- `documentDate` (required): Date format YYYY-MM-DD
+- `dueDate` (required): Date format YYYY-MM-DD
+- `currencyCode` (required): Currency code (e.g., DKK, EUR, USD)
+- `paymentTermsCode` (optional): Payment terms code from Business Central
+
+**Error Responses:**
+```json
+{
+  "error": true,
+  "code": "Customer not found",
+  "message": "The customer with ID \"CUST-999\" does not exist."
+}
+```
+
+or
+
+```json
+{
+  "error": true,
+  "code": "Invalid date format",
+  "message": "documentDate must be in YYYY-MM-DD format."
+}
+```
+
+---
 
 ### Get Invoice Details (POST)
 
