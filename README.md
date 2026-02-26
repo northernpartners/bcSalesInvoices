@@ -126,17 +126,39 @@ POST /v2.0/{tenant-id}/{environment}/ODataV4/ProcessInvoice
   "lines": [
     {
       "lineNumber": 10000,
+      "lineType": "Item",
+      "itemNumber": "PROD-001",
       "description": "Product A",
       "quantity": 2,
+      "unitOfMeasureCode": "PCS",
       "unitPrice": 500.00,
-      "lineAmount": 1000.00
+      "lineAmount": 1000.00,
+      "lineDimensions": [
+        {
+          "code": "ACTPERIOD",
+          "value": "2026-Q1"
+        },
+        {
+          "code": "CONTRACT",
+          "value": "LINE-123"
+        }
+      ]
     },
     {
       "lineNumber": 20000,
+      "lineType": "G/L Account",
+      "itemNumber": "6100",
       "description": "Service B",
       "quantity": 1,
+      "unitOfMeasureCode": "HR",
       "unitPrice": 200.00,
-      "lineAmount": 200.00
+      "lineAmount": 200.00,
+      "lineDimensions": [
+        {
+          "code": "ACTPERIOD",
+          "value": "2026-Q1"
+        }
+      ]
     }
   ],
   "dimensions": [
@@ -155,6 +177,8 @@ POST /v2.0/{tenant-id}/{environment}/ODataV4/ProcessInvoice
 **Response Notes:**
 - For **draft invoices**: `pdfUrl` is empty (PDFs only exist for posted invoices)
 - For **posted invoices**: `pdfUrl` contains a reference path to download the PDF
+- **Line fields**: Each line includes `lineType`, `itemNumber`, and `unitOfMeasureCode`
+- **Line dimensions**: If dimensions are requested, each line includes a `lineDimensions` array with the line-level dimensions
 
 **Request Parameters:**
 - `action` (required): `getDraftDetails` or `getPostedDetails`
@@ -163,7 +187,8 @@ POST /v2.0/{tenant-id}/{environment}/ODataV4/ProcessInvoice
 
 **Response Fields:**
 - `pdfUrl`: For posted invoices, a reference path to download the PDF. Empty for draft invoices.
-- `dimensions`: Only included if requested in the `dimensions` parameter.
+- `dimensions`: Only included if requested in the `dimensions` parameter. Contains header-level dimensions.
+- `lines[].lineDimensions`: Only included if dimensions are requested. Contains line-level dimensions.
 - All other fields are always included.
 
 ---

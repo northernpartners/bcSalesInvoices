@@ -143,10 +143,18 @@ codeunit 50200 "SI Handler"
         if SalesInvoiceLine.FindSet() then
             repeat
                 LineObject.Add('lineNumber', SalesInvoiceLine."Line No.");
+                LineObject.Add('lineType', Format(SalesInvoiceLine.Type));
+                LineObject.Add('itemNumber', SalesInvoiceLine."No.");
                 LineObject.Add('description', SalesInvoiceLine.Description);
                 LineObject.Add('quantity', SalesInvoiceLine.Quantity);
+                LineObject.Add('unitOfMeasureCode', SalesInvoiceLine."Unit of Measure Code");
                 LineObject.Add('unitPrice', SalesInvoiceLine."Unit Price");
                 LineObject.Add('lineAmount', SalesInvoiceLine."Line Amount");
+
+                // Add line dimensions if requested
+                if DimensionArray.Count() > 0 then
+                    LineObject.Add('lineDimensions', GetLineDimensions(SalesInvoiceLine."Dimension Set ID", DimensionArray));
+
                 LineArray.Add(LineObject);
                 Clear(LineObject);
             until SalesInvoiceLine.Next() = 0;
@@ -194,10 +202,18 @@ codeunit 50200 "SI Handler"
         if SalesLine.FindSet() then
             repeat
                 LineObject.Add('lineNumber', SalesLine."Line No.");
+                LineObject.Add('lineType', Format(SalesLine.Type));
+                LineObject.Add('itemNumber', SalesLine."No.");
                 LineObject.Add('description', SalesLine.Description);
                 LineObject.Add('quantity', SalesLine.Quantity);
+                LineObject.Add('unitOfMeasureCode', SalesLine."Unit of Measure Code");
                 LineObject.Add('unitPrice', SalesLine."Unit Price");
                 LineObject.Add('lineAmount', SalesLine."Line Amount");
+
+                // Add line dimensions if requested
+                if DimensionArray.Count() > 0 then
+                    LineObject.Add('lineDimensions', GetLineDimensions(SalesLine."Dimension Set ID", DimensionArray));
+
                 LineArray.Add(LineObject);
                 Clear(LineObject);
             until SalesLine.Next() = 0;
@@ -221,6 +237,36 @@ codeunit 50200 "SI Handler"
         // URL pattern for downloading a posted Sales Invoice PDF in BC
         // The actual URL will be constructed by the client using their tenant/environment info
         exit('SalesInvoices/SalesInvoiceDocument/' + InvoiceNumber);
+    end;
+
+    /// <summary>
+    /// Retrieves dimension values for a specific line, filtered by requested dimension codes.
+    /// </summary>
+    local procedure GetLineDimensions(DimensionSetId: Integer; RequestedDimensions: JsonArray): JsonArray
+    var
+        DimensionSetEntry: Record "Dimension Set Entry";
+        DimensionArray: JsonArray;
+        DimensionObject: JsonObject;
+    begin
+        if DimensionSetId = 0 then
+            exit(DimensionArray); // Return empty array if no dimensions
+
+        DimensionSetEntry.SetRange("Dimension Set ID", DimensionSetId);
+
+        if DimensionSetEntry.FindSet() then
+            repeat
+                // Only include requested dimensions
+                if RequestedDimensions.Count() > 0 then begin
+                    if IsDimensionInArray(DimensionSetEntry."Dimension Code", RequestedDimensions) then begin
+                        Clear(DimensionObject);
+                        DimensionObject.Add('code', DimensionSetEntry."Dimension Code");
+                        DimensionObject.Add('value', DimensionSetEntry."Dimension Value Code");
+                        DimensionArray.Add(DimensionObject);
+                    end;
+                end;
+            until DimensionSetEntry.Next() = 0;
+
+        exit(DimensionArray);
     end;
 
     /// <summary>
